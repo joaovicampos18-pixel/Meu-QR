@@ -19,18 +19,17 @@ def conectar():
 supabase = conectar()
 
 if supabase is None:
-    st.error("🚨 Verifique as chaves nos Secrets do Streamlit!")
+    st.error("🚨 Configure as chaves nos Secrets do Streamlit!")
     st.stop()
 
 st.title("📟 Gerador de Etiquetas")
 
-# Busca o último número na tabela 'registros_etiquetas'
+# Busca o último número gravado
 def buscar_ultimo():
     try:
         res = supabase.table("registros_etiquetas").select("fim").order("fim", desc=True).limit(1).execute()
         return int(res.data[0]['fim']) if res.data else 0
-    except Exception as e:
-        st.warning(f"Aguardando primeira gravação ou erro: {e}")
+    except:
         return 0
 
 proximo = buscar_ultimo() + 1
@@ -51,15 +50,13 @@ if st.button("🚀 GERAR E SALVAR"):
             img.save(img_io, format="PNG")
             zf.writestr(f"QR_{num_str}.png", img_io.getvalue())
     
-    # Salvar
+    # Salvar no Banco
     try:
         supabase.table("registros_etiquetas").insert({
-            "inicio": inicio,
-            "fim": fim,
-            "quantidade": qtd
+            "inicio": inicio, "fim": fim, "quantidade": qtd
         }).execute()
         
-        st.success(f"✅ Sucesso! Lote {inicio:08d} a {fim:08d}")
+        st.success(f"✅ Salvo! Lote {inicio:08d} a {fim:08d}")
         st.download_button("📥 Baixar Etiquetas (.ZIP)", buf.getvalue(), f"lote_{inicio}.zip")
     except Exception as e:
         st.error(f"Erro ao salvar: {e}")
@@ -71,4 +68,4 @@ with st.expander("📊 Ver Histórico"):
         if h.data:
             st.table(pd.DataFrame(h.data)[['id', 'inicio', 'fim', 'quantidade']])
     except:
-        st.write("Sem registros.")
+        st.write("Sem registros por enquanto.")
