@@ -64,7 +64,7 @@ def gerar_etiqueta_pil(conteudo):
     return canvas
 
 # --- INTERFACE ---
-st.title("📟 Gerador Zebra com Multi-Preview")
+st.title("📟 Gerador Zebra com Multi-Preview (Sem Cortes)")
 
 proximo = buscar_ultimo() + 1
 st.metric(label="Próximo Código Sequencial", value=f"{proximo:08d}")
@@ -75,16 +75,18 @@ with tab_auto:
     qtd = st.number_input("Quantidade:", min_value=1, max_value=200, value=10)
     
     st.write("---")
-    st.subheader(f"👁️ Pré-visualização das primeiras etiquetas:")
+    st.subheader(f"👁️ Pré-visualização das primeiras etiquetas (Sem cortes):")
     
     # Gerar os 10 primeiros (ou a quantidade total se for menor que 10)
     limite_preview = min(qtd, 10)
-    cols = st.columns(5) # Exibe em 5 colunas para poupar espaço
+    # Aumentei para 6 colunas para caber melhor sem cortar
+    cols = st.columns(6) 
     for i in range(limite_preview):
         num_preview = f"{(proximo + i):08d}"
         img_preview = gerar_etiqueta_pil(num_preview)
-        with cols[i % 5]:
-            st.image(img_preview, caption=num_preview, use_container_width=True)
+        with cols[i % 6]:
+            # CORREÇÃO: Definindo largura fixa (width=150) para evitar cortes
+            st.image(img_preview, caption=num_preview, width=150)
     
     st.write("---")
 
@@ -107,7 +109,8 @@ with tab_auto:
 with tab_man:
     txt = st.text_input("Código único:")
     if txt:
-        st.image(gerar_etiqueta_pil(txt), width=300)
+        # Aqui também usei uma largura fixa para garantir
+        st.image(gerar_etiqueta_pil(txt), width=250, caption="Pré-visualização Total")
     if st.button("🎨 Gerar PDF Avulso"):
         if txt:
             pdf = FPDF(orientation='L', unit='mm', format=(40, 80))
@@ -121,12 +124,13 @@ with tab_list:
         codigos_pre = [c.strip() for c in lista.split("\n") if c.strip()]
         if codigos_pre:
             st.info(f"{len(codigos_pre)} etiquetas detectadas.")
-            st.subheader("👁️ Amostra das 10 primeiras da lista:")
+            st.subheader("👁️ Amostra das 10 primeiras da lista (Sem cortes):")
             limite_list = min(len(codigos_pre), 10)
-            cols_l = st.columns(5)
+            cols_l = st.columns(6)
             for j in range(limite_list):
-                with cols_l[j % 5]:
-                    st.image(gerar_etiqueta_pil(codigos_pre[j]), caption=codigos_pre[j], use_container_width=True)
+                with cols_l[j % 6]:
+                    # CORREÇÃO: Largura fixa para a lista também
+                    st.image(gerar_etiqueta_pil(codigos_pre[j]), caption=codigos_pre[j], width=150)
 
     if st.button("📦 Gerar PDF da Lista"):
         codigos = [c.strip() for c in lista.split("\n") if c.strip()]
