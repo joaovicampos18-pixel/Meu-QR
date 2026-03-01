@@ -41,16 +41,37 @@ def f_padrao(txt):
 def f_larga(lista):
     canv = Image.new('RGB', (3150, 800), 'white')
     d = ImageDraw.Draw(canv)
-    try: ft=ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",90)
-    except: ft=ImageFont.load_default()
+    try: 
+        ft=ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",80) # Rua/Posicao
+        fc=ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",50) # Codigo individual reduzido
+    except: ft=fc=ImageFont.load_default()
+    
+    # Titulo RUA / POSICAO
+    if lista and '.' in str(lista[0]):
+        p = str(lista[0]).split('.')
+        tit = f"RUA {p[0]} POSICAO {p[1]}"
+        d.text(((3150-d.textlength(tit,font=ft))/2,25),tit,fill="black",font=ft)
+
     w = 3150/7
+    # Linhas divisorias
     for i in range(1,7): d.line([(i*w,120),(i*w,780)],fill="black",width=8)
+
     for i, c in enumerate(lista[:7]):
-        qr = qrcode.QRCode(box_size=14, border=1); qr.add_data(str(c)); qr.make(fit=True)
+        # QR Code com tamanho controlado para não vazar
+        qr = qrcode.QRCode(version=1, box_size=13, border=2)
+        qr.add_data(str(c)); qr.make(fit=True)
         qimg = qr.make_image().convert('RGB')
+        
+        # Centro do bloco de 450px (3150/7)
         xf = (i*w)+(w-qimg.size[0])/2
-        canv.paste(qimg,(int(xf),220))
-        d.text((xf, 140), str(c), fill="black", font=ft)
+        
+        # Texto individual centralizado e menor
+        txt_c = str(c)
+        tw = d.textlength(txt_c, font=fc)
+        tx = (i*w) + (w - tw)/2
+        
+        d.text((tx, 160), txt_c, fill="black", font=fc)
+        canv.paste(qimg,(int(xf),250))
     return canv
 
 px = buscar_ultimo() + 1
@@ -94,6 +115,6 @@ with t4:
             st.image(f_larga(it[:7]), use_container_width=True)
             if st.button("GERAR LARGA", key="blg"):
                 p4 = FPDF('L','mm',(80,315))
-                for i in range(0,len(it),7):
+                for i in range(0, len(it), 7):
                     p4.add_page(); p4.image(f_larga(it[i:i+7]),0,0,315,80)
-                st.download_button("Download PDF", bytes(p4.output()), "larga.pdf", key="dlg")
+                st.download_button("Download PDF", bytes
