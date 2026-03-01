@@ -62,14 +62,15 @@ def gerar_etiqueta_pil(conteudo):
     canvas.paste(qr_img, (130, 100))
     return canvas
 
-# --- ETIQUETA LARGA (31.5x8 cm) - AJUSTE DE ESPACAMENTO PARA COLETOR ---
+# --- ETIQUETA LARGA (31.5x8 cm) - QR CODES AMPLIADOS ---
 def gerar_etiqueta_larga_pil(lista_codigos):
+    # Proporção 31.5 x 8 (3150x800 pixels)
     canvas_w, canvas_h = 3150, 800
     canvas = Image.new('RGB', (canvas_w, canvas_h), 'white')
     draw = ImageDraw.Draw(canvas)
     try:
-        font_titulo = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 90)
-        font_cod = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 55)
+        font_titulo = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 95) # Titulo maior
+        font_cod = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 65)    # Codigo maior
     except:
         font_titulo = ImageFont.load_default(); font_cod = ImageFont.load_default()
 
@@ -78,15 +79,15 @@ def gerar_etiqueta_larga_pil(lista_codigos):
         if len(partes) >= 2:
             titulo = f"RUA {partes[0]} POSICAO {partes[1]}"
             w_text = draw.textlength(titulo, font=font_titulo)
-            draw.text(((canvas_w - w_text) / 2, 40), titulo, fill="black", font=font_titulo)
+            draw.text(((canvas_w - w_text) / 2, 30), titulo, fill="black", font=font_titulo)
 
-    # Parametros de espacamento para evitar bipe errado
-    margem_inicial = 80
+    # Parametros para maximizar o tamanho
+    margem_inicial = 60
     espacamento_entre = 440 
 
     for i, cod in enumerate(lista_codigos[:7]):
-        # QR Code ligeiramente menor (box_size 9) e com borda maior para isolamento
-        qr = qrcode.QRCode(version=1, box_size=9, border=3)
+        # Aumentei box_size de 9 para 13 para o QR Code ficar bem grande
+        qr = qrcode.QRCode(version=1, box_size=13, border=2)
         qr.add_data(str(cod))
         qr.make(fit=True)
         qr_img = qr.make_image(fill_color="black", back_color="white").convert('RGB')
@@ -97,8 +98,9 @@ def gerar_etiqueta_larga_pil(lista_codigos):
         w_cod = draw.textlength(str(cod), font=font_cod)
         offset_texto = (qr_img.size[0] - w_cod) / 2
         
-        draw.text((x_pos + offset_texto, 200), str(cod), fill="black", font=font_cod)
-        canvas.paste(qr_img, (x_pos, 280))
+        # Desenha Texto e QR Code (Posicionados para aproveitar a altura)
+        draw.text((x_pos + offset_texto, 160), str(cod), fill="black", font=font_cod)
+        canvas.paste(qr_img, (x_pos, 250))
     return canvas
 
 # --- INTERFACE ---
@@ -136,11 +138,11 @@ with tab_man:
             st.download_button("Baixar PDF Manual", bytes(pdf_m.output()), "individual.pdf", "application/pdf")
 
 with tab_list:
-    txt_l = st.text_area("Cole a lista (um por linha):", height=150, key="ta_list")
+    txt_l = st.text_area("Cole a lista (10x6.5):", height=150, key="ta_list")
     if txt_l:
         cods = [c.strip() for c in txt_l.split("\n") if c.strip()]
         if cods:
-            st.subheader("Pre-visualizacao (Primeiro da lista)")
+            st.subheader("Pre-visualizacao")
             st.image(gerar_etiqueta_pil(cods[0]), width=500)
             if st.button("GERAR PDF DA LISTA", key="btn_list_pdf"):
                 pdf_l = FPDF(orientation='L', unit='mm', format=(65, 100))
@@ -153,7 +155,7 @@ with tab_larga:
     if txt_lg:
         itens = [e.strip() for e in txt_lg.split("\n") if e.strip()]
         if itens:
-            st.subheader("Pre-visualizacao (Sete por pagina com espacamento)")
+            st.subheader("Pre-visualizacao (Tamanho Ampliado)")
             st.image(gerar_etiqueta_larga_pil(itens[:7]), use_container_width=True)
             if st.button("GERAR PDF ETIQUETA LARGA", key="btn_lg_pdf"):
                 pdf_lg = FPDF(orientation='L', unit='mm', format=(80, 315))
