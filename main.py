@@ -5,14 +5,18 @@ from PIL import Image, ImageDraw, ImageFont
 from fpdf import FPDF
 from datetime import datetime
 
-st.set_page_config(page_title="Gerador QR", layout="wide")
+# CREDENCIAIS DIRETAS - JOAO VITOR
+URL_DB = "https://vbrpgqpjujedxkughbgp.supabase.co"
+KEY_DB = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZicnBncXBqdWplZHhrdWdoYmdwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIzNjQwMTMsImV4cCI6MjA4Nzk0MDAxM30.6chioJKrO2gs0W8aWp_XxJlXVZoZhJW8libvlKB8giA"
 
-# Nome com Destaque Azul (Visibilidade Total)
+st.set_page_config(page_title="Gerador QR - J.V.C.L. Silva", layout="wide")
+
+# Cabeçalho com Nome Completo e Destaque
 st.markdown("""<style>.dev{font-size:16px;color:white;background:#4A90E2;padding:10px;border-radius:5px;margin-bottom:20px;font-weight:bold;}</style>
 <div class="dev">Desenvolvido por: Joao Vitor de Campos Leandro Silva | 2026</div>""", unsafe_allow_html=True)
 
 def conectar():
-    try: return create_client(st.secrets["SUPABASE_URL"], st.secrets["SUPABASE_KEY"])
+    try: return create_client(URL_DB, KEY_DB)
     except: return None
 db = conectar()
 
@@ -28,7 +32,7 @@ def f_pad(t):
     img = qr.make_image().convert('RGB')
     cv = Image.new('RGB', (img.size[0]+300, img.size[1]+120), 'white')
     d = ImageDraw.Draw(cv)
-    try: f=ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",60)
+    try: f=ImageFont.truetype("arialbd.ttf",60)
     except: f=ImageFont.load_default()
     d.text((150,20),str(t),fill="black",font=f)
     cv.paste(img,(130,100))
@@ -38,8 +42,8 @@ def f_lg(li):
     cv = Image.new('RGB', (3150, 800), 'white')
     d = ImageDraw.Draw(cv)
     try: 
-        ft=ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",80)
-        fc=ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",45)
+        ft=ImageFont.truetype("arialbd.ttf",80)
+        fc=ImageFont.truetype("arialbd.ttf",45)
     except: ft=fc=ImageFont.load_default()
     if li and '.' in str(li[0]):
         p = str(li[0]).split('.')
