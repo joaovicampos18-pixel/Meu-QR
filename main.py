@@ -6,29 +6,27 @@ import zipfile
 from datetime import datetime
 import pandas as pd
 
-# 1. Configuração da Página
 st.set_page_config(page_title="Gerador QR Pro", page_icon="📊")
 
-# 2. Conexão com o Google Sheets
-# O link deve estar configurado no menu 'Secrets' do Streamlit Cloud
+# Conexão
 conn = st.connection("gsheets", type=GSheetsConnection)
 
+# Função para ler dados com tratamento de erro
 def buscar_dados():
     try:
-        # ttl=0 garante que ele não use dados antigos (cache)
         df = conn.read(ttl=0)
         if df is None or df.empty:
             return pd.DataFrame(columns=["Data", "Hora", "Inicio", "Fim", "Quantidade"])
         return df
-    except Exception:
-        # Se a planilha estiver vazia ou inacessível, cria a estrutura básica
+    except:
         return pd.DataFrame(columns=["Data", "Hora", "Inicio", "Fim", "Quantidade"])
 
-# 3. Lógica do Contador (Lê o maior número da coluna 'Fim')
 df_sheets = buscar_dados()
 
+# Cálculo do contador
 try:
-    if not df_sheets.empty and "Fim" in df_sheets.columns:
+    # Garante que as colunas existam antes de calcular o máximo
+    if "Fim" in df_sheets.columns:
         ultimo_valor = int(pd.to_numeric(df_sheets["Fim"]).max())
     else:
         ultimo_valor = 0
@@ -37,73 +35,56 @@ except:
 
 proximo_inicio = ultimo_valor + 1
 
-# --- INTERFACE ---
 st.title("📟 Gerador de Etiquetas")
-st.write("---")
+st.info(f"### ➡️ Próximo número: **{proximo_inicio:08d}**")
 
-aba1, aba2 = st.tabs(["📦 Gerar Lote", "📊 Histórico Google Sheets"])
+qtd = st.number_input("Quantidade:", min_value=1, value=10, step=1)
 
-with aba1:
-    st.info(f"### ➡️ Próximo número: **{proximo_inicio:08d}**")
+if st.button("🚀 GERAR E SALVAR"):
+    inicio_lote = proximo_inicio
+    fim_lote = proximo_inicio + qtd - 1
     
-    qtd = st.number_input("Quantidade para o lote:", min_value=1, value=20, step=1)
+    # Gerar ZIP
+    buf_zip = BytesIO()
+    with zipfile.ZipFile(buf_zip, "w") as zf:
+        for i in range(qtd):
+            num_str = f"{(inicio_lote + i):08d}"
+            img = qrcode.make(num_str)
+            img_io = BytesIO()
+            img.save(img_io, format="PNG")
+            zf.writestr(f"QR_{num_str}.png", img_io.getvalue())
     
-    if st.button("🚀 GERAR E SALVAR NA PLANILHA"):
-        inicio_lote = proximo_inicio
-        fim_lote = proximo_inicio + qtd - 1
-        
-        # --- GERAÇÃO DO ZIP ---
-        buf_zip = BytesIO()
-        with zipfile.ZipFile(buf_zip, "w") as zf:
-            for i in range(qtd):
-                num_atual = inicio_lote + i
-                txt_qr = f"{num_atual:08d}"
-                
-                img = qrcode.make(txt_qr)
-                img_io = BytesIO()
-                img.save(img_io, format="PNG")
-                zf.writestr(f"QR_{txt_qr}.png", img_io.getvalue())
-        
-        # --- SALVAR NO GOOGLE SHEETS ---
-        nova_linha = pd.DataFrame([{
-            "Data": datetime.now().strftime('%d/%m/%Y'),
-            "Hora": datetime.now().strftime('%H:%M:%S'),
-            "Inicio": int(inicio_lote),
-            "Fim": int(fim_lote),
-            "Quantidade": int(qtd)
-        }])
-        
-        try:
-            # Combina dados e atualiza planilha
-            df_atualizado = pd.concat([df_sheets, nova_linha], ignore_index=True)
-            conn.update(data=df_atualizado)
-            
-            # Limpa cache para atualizar o número na tela
-            st.cache_data.clear()
-            
-            st.success(f"✅ Gravado: {inicio_lote:08d} a {fim_lote:08d}")
-            
-            st.download_button(
-                label="📥 BAIXAR ETIQUETAS (.ZIP)",
-                data=buf_zip.getvalue(),
-                file_name=f"lote_{inicio_lote:08d}.zip",
-                mime="application/zip"
-            )
-            
-            # Botão invisível para forçar recarregamento
-            st.button("🔄 Próxima Etiqueta")
-                
-        except Exception as e:
-            st.error("Erro ao gravar. Verifique se a planilha está aberta para 'Editor'.")
-            st.info("Dica: A primeira linha da planilha deve ter: Data, Hora, Inicio, Fim, Quantidade")
-
-with aba2:
-    st.subheader("📋 Dados na Planilha Online")
-    if not df_sheets.empty:
-        st.dataframe(df_sheets.sort_index(ascending=False), use_container_width=True)
-    else:
-        st.write("Planilha vazia ou não conectada.")
+    # Criar nova linha
+    nova_linha = pd.DataFrame([{
+        "Data": datetime.now().strftime('%d/%m/%Y'),
+        "Hora": datetime.now().strftime('%H:%M:%S'),
+        "Inicio": int(inicio_lote),
+        "Fim": int(fim_lote),
+        "Quantidade": int(qtd)
+    }])
     
-    if st.button("🔄 Sincronizar Agora"):
+    try:
+        # IMPORTANTE: Re-organiza as colunas para bater com a planilha
+        df_para_salvar = pd.concat([df_sheets, nova_linha], ignore_index=True)
+        df_para_salvar = df_para_salvar[["Data", "Hora", "Inicio", "Fim", "Quantidade"]]
+        
+        # Envia para o Google
+        conn.update(data=df_para_salvar)
+        
         st.cache_data.clear()
-        st.rerun()
+        st.success("✅ Salvo com sucesso no Google Sheets!")
+        
+        st.download_button(
+            label="📥 BAIXAR ZIP",
+            data=buf_zip.getvalue(),
+            file_name=f"lote_{inicio_lote:08d}.zip",
+            mime="application/zip"
+        )
+    except Exception as e:
+        st.error("Erro técnico na gravação.")
+        # Isso vai mostrar o erro real do Google para sabermos o que é
+        st.exception(e) 
+
+if st.button("🔄 Sincronizar"):
+    st.cache_data.clear()
+    st.rerun()
