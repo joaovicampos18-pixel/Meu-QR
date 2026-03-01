@@ -7,17 +7,13 @@ from datetime import datetime
 
 st.set_page_config(page_title="Gerador QR", layout="wide")
 
-# Ajuste de Cor para Visibilidade (Azul Royal para destacar no fundo claro/escuro)
+# Estilo para garantir que seu nome apareça (Fundo Azul, Texto Branco)
 st.markdown("""
     <style>
-    .main-title { font-size: 32px; font-weight: bold; color: #4A90E2; margin-bottom: 0px; }
+    .main-title { font-size: 30px; font-weight: bold; color: #4A90E2; margin-bottom: 0px; }
     .dev-credits { 
-        font-size: 16px; 
-        color: #FFFFFF; 
-        background-color: #4A90E2; 
-        padding: 10px; 
-        border-radius: 5px; 
-        margin-bottom: 20px;
+        font-size: 16px; color: #FFFFFF; background-color: #4A90E2; 
+        padding: 10px; border-radius: 5px; margin-bottom: 20px;
     }
     </style>
     <div class="main-title">Gerador de LPN/QR Code</div>
@@ -77,8 +73,10 @@ st.metric("Próximo Código", f"{px:08d}")
 t1,t2,t3,t4 = st.tabs(["Auto","Manual","Lista","Larga (7 QRs)"])
 
 with t1:
-    q = st.number_input("Qtd:",1,200,10)
-    if st.button("GERAR LOTE", key="btn_auto"):
+    q = st.number_input("Qtd:",1,200,10, key="n_auto")
+    st.subheader("Pré-visualização:")
+    st.image(f_padrao(f"{px:08d}"), width=450)
+    if st.button("GERAR LOTE", key="b_auto"):
         pdf = FPDF('L','mm',(65,100))
         for i in range(q):
             pdf.add_page(); pdf.image(f_padrao(f"{(px+i):08d}"),5,5,90)
@@ -86,26 +84,4 @@ with t1:
         st.download_button("Baixar PDF", bytes(pdf.output()), "lote.pdf")
 
 with t2:
-    m = st.text_input("Código:")
-    if m and st.button("GERAR MANUAL", key="btn_man"):
-        p2 = FPDF('L','mm',(65,100)); p2.add_page(); p2.image(f_padrao(m),5,5,90)
-        st.download_button("Baixar PDF", bytes(p2.output()), "manual.pdf")
-
-with t3:
-    ls = st.text_area("Lista (1 por linha):")
-    if ls and st.button("GERAR LISTA", key="btn_list"):
-        p3 = FPDF('L','mm',(65,100))
-        for c in ls.split("\n"):
-            if c.strip(): p3.add_page(); p3.image(f_padrao(c.strip()),5,5,90)
-        st.download_button("Baixar PDF", bytes(p3.output()), "lista.pdf")
-
-with t4:
-    lg = st.text_area("Códigos p/ Larga:")
-    if lg:
-        it = [e.strip() for e in lg.split("\n") if e.strip()]
-        st.image(f_larga(it[:7]), use_container_width=True)
-        if st.button("GERAR PDF LARGA", key="btn_larga"):
-            p4 = FPDF('L','mm',(80,315))
-            for i in range(0,len(it),7):
-                p4.add_page(); p4.image(f_larga(it[i:i+7]),0,0,315,80)
-            st.download_button("Baixar PDF", bytes(p4.output()), "larga.pdf")
+    m = st.text
