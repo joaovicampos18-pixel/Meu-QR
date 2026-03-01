@@ -4,7 +4,7 @@ import qrcode
 from PIL import Image, ImageDraw, ImageFont
 from io import BytesIO
 import pandas as pd
-from fpdf import FPDF # fpdf2 também é importado como FPDF
+from fpdf import FPDF
 
 # 1. Configuração da Página
 st.set_page_config(page_title="Gerador QR Pro", page_icon="📟", layout="wide")
@@ -64,7 +64,7 @@ def gerar_etiqueta_pil(conteudo):
     return canvas
 
 # --- INTERFACE ---
-st.title("📟 Gerador Zebra PDF")
+st.title("📟 Gerador Zebra com Pré-visualização")
 
 proximo = buscar_ultimo() + 1
 st.metric(label="Próximo Código Sequencial", value=f"{proximo:08d}")
@@ -73,19 +73,25 @@ tab_auto, tab_man, tab_list = st.tabs(["⚡ Automático", "🎯 Manual", "📋 L
 
 with tab_auto:
     qtd = st.number_input("Quantidade:", min_value=1, max_value=200, value=10)
-    if st.button("🚀 GERAR PDF E SALVAR", use_container_width=True):
+    
+    # Pré-visualização da primeira etiqueta do lote
+    st.write("---")
+    st.subheader("👁️ Pré-visualização (Exemplo da 1ª etiqueta):")
+    amostra = gerar_etiqueta_pil(f"{proximo:08d}")
+    st.image(amostra, width=300, caption=f"Amostra: {proximo:08d}")
+    st.write("---")
+
+    if st.button("🚀 GERAR PDF E SALVAR LOTE", use_container_width=True):
         inicio, fim = proximo, proximo + qtd - 1
-        # PDF formatado para Zebra (L=Landscape, 80x40mm)
         pdf = FPDF(orientation='L', unit='mm', format=(40, 80))
         
         for i in range(qtd):
             num_str = f"{(inicio + i):08d}"
             img = gerar_etiqueta_pil(num_str)
             pdf.add_page()
-            # Com fpdf2, podemos passar a imagem PIL diretamente
             pdf.image(img, x=2, y=2, w=76) 
 
-        pdf_output = pdf.output() # No fpdf2, output() sem argumentos retorna bytes/bytearray
+        pdf_output = pdf.output()
         
         try:
             supabase.table("registros_etiquetas").insert({"inicio": inicio, "fim": fim, "quantidade": qtd}).execute()
@@ -96,6 +102,10 @@ with tab_auto:
 
 with tab_man:
     txt = st.text_input("Código único:")
+    if txt:
+        img_preview = gerar_etiqueta_pil(txt)
+        st.image(img_preview, width=300, caption="Pré-visualização da etiqueta manual")
+        
     if st.button("🎨 Gerar PDF Avulso"):
         if txt:
             pdf = FPDF(orientation='L', unit='mm', format=(40, 80))
@@ -106,7 +116,15 @@ with tab_man:
 
 with tab_list:
     lista = st.text_area("Cole a lista:", height=150)
-    if st.button("📦 Gerar Lote da Lista"):
+    
+    if lista:
+        codigos_pre = [c.strip() for c in lista.split("\n") if c.strip()]
+        if codigos_pre:
+            st.info(f"Total de {len(codigos_pre)} etiquetas detectadas.")
+            st.subheader("👁️ Amostra do primeiro item colado:")
+            st.image(gerar_etiqueta_pil(codigos_pre[0]), width=300)
+
+    if st.button("📦 Gerar PDF da Lista"):
         codigos = [c.strip() for c in lista.split("\n") if c.strip()]
         if codigos:
             pdf = FPDF(orientation='L', unit='mm', format=(40, 80))
