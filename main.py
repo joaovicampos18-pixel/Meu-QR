@@ -13,7 +13,7 @@ st.set_page_config(
     layout="wide"
 )
 
-# Estilo Customizado para o Rodapé
+# Estilo Customizado para o Rodapé (Corrigido)
 st.markdown("""
     <style>
     .footer {
@@ -28,9 +28,13 @@ st.markdown("""
         font-size: 14px;
         font-weight: bold;
         border-top: 1px solid #e6e9ef;
+        z-index: 999;
     }
     </style>
-    """, unsafe_allow_stats=True)
+    <div class="footer">
+        Desenvolvido por João Vitor de Campos Leandro Silva | 2026
+    </div>
+    """, unsafe_allow_html=True)
 
 # Conexão com Supabase
 @st.cache_resource
@@ -46,11 +50,10 @@ supabase = conectar()
 
 # --- BARRA LATERAL (SIDEBAR) ---
 with st.sidebar:
-    st.image("https://cdn-icons-png.flaticon.com/512/714/714390.png", width=100)
-    st.title("Configurações")
+    st.title("⚙️ Configurações")
     
     if supabase:
-        st.success("✅ Banco de Dados Conectado")
+        st.success("✅ Banco Conectado")
     else:
         st.error("❌ Erro de Conexão")
 
@@ -62,11 +65,10 @@ with st.sidebar:
             df = pd.DataFrame(h.data)[['inicio', 'fim', 'quantidade']]
             st.dataframe(df, hide_index=True)
     except:
-        st.write("Sem histórico disponível.")
+        st.write("Sem histórico.")
 
 # --- CORPO PRINCIPAL ---
-st.title("📟 Gerador de Etiquetas Inteligente")
-st.write("Crie QR Codes sequenciais ou manuais com salvamento automático.")
+st.title("📟 Gerador de Etiquetas Profissional")
 
 def buscar_ultimo():
     try:
@@ -85,29 +87,23 @@ def gerar_etiqueta_img(conteudo):
     canvas = Image.new('RGB', (w, h + 60), 'white')
     draw = ImageDraw.Draw(canvas)
     
-    # Texto Centralizado no Topo
-    texto = str(conteudo)
-    draw.text((w/2 - 25, 15), texto, fill="black")
+    # Texto no topo
+    draw.text((w/2 - 30, 15), str(conteudo), fill="black")
     canvas.paste(qr_img, (0, 50))
     
     img_io = BytesIO()
     canvas.save(img_io, format="PNG")
     return img_io.getvalue()
 
-# Layout de Colunas para o Próximo Número
 proximo = buscar_ultimo() + 1
-col1, col2 = st.columns([1, 3])
-with col1:
-    st.metric(label="Próximo Código", value=f"{proximo:08d}")
+st.metric(label="Próximo Código Sequencial", value=f"{proximo:08d}")
 
-# --- ABAS DE TRABALHO ---
-tab_auto, tab_man, tab_list = st.tabs(["⚡ Automático", "🎯 Manual", "📋 Lista de Planilha"])
+# --- ABAS ---
+tab_auto, tab_man, tab_list = st.tabs(["⚡ Automático", "🎯 Manual", "📋 Colar Lista"])
 
 with tab_auto:
-    st.subheader("Gerar Lote Sequencial")
-    qtd = st.number_input("Quantas etiquetas deseja gerar?", min_value=1, max_value=500, value=10)
-    
-    if st.button("🚀 Iniciar Geração Automática", use_container_width=True):
+    qtd = st.number_input("Quantidade:", min_value=1, max_value=500, value=10)
+    if st.button("🚀 Iniciar Geração", use_container_width=True):
         inicio, fim = proximo, proximo + qtd - 1
         buf = BytesIO()
         with zipfile.ZipFile(buf, "w") as zf:
@@ -117,24 +113,21 @@ with tab_auto:
         
         try:
             supabase.table("registros_etiquetas").insert({"inicio": inicio, "fim": fim, "quantidade": qtd}).execute()
-            st.balloons()
-            st.success(f"Lote {inicio:08d} até {fim:08d} gerado!")
-            st.download_button("📥 Baixar Arquivo ZIP", buf.getvalue(), f"lote_{inicio}.zip", type="primary")
-        except Exception as e:
-            st.error(f"Erro ao salvar: {e}")
+            st.success(f"Lote {inicio:08d} a {fim:08d} salvo!")
+            st.download_button("📥 Baixar ZIP", buf.getvalue(), f"lote_{inicio}.zip")
+        except:
+            st.error("Erro ao salvar no banco.")
 
 with tab_man:
-    st.subheader("Gerar Código Específico")
-    texto_manual = st.text_input("Digite o código desejado (Letras ou Números):")
-    if st.button("🎨 Gerar Etiqueta Única"):
+    texto_manual = st.text_input("Digite o código:")
+    if st.button("🎨 Gerar Única"):
         if texto_manual:
             img_data = gerar_etiqueta_img(texto_manual)
             st.image(img_data, width=200)
-            st.download_button("📥 Baixar Imagem", img_data, f"etiqueta_{texto_manual}.png")
+            st.download_button("📥 Baixar PNG", img_data, "etiqueta.png")
 
 with tab_list:
-    st.subheader("Importar do Excel/Bloco de Notas")
-    lista_codigos = st.text_area("Cole aqui os códigos (um por linha):", height=250)
+    lista_codigos = st.text_area("Cole os códigos (um por linha):", height=200)
     if st.button("📦 Gerar Lote da Lista"):
         codigos = [c.strip() for c in lista_codigos.split("\n") if c.strip()]
         if codigos:
@@ -142,12 +135,4 @@ with tab_list:
             with zipfile.ZipFile(buf, "w") as zf:
                 for cod in codigos:
                     zf.writestr(f"Etiqueta_{cod}.png", gerar_etiqueta_img(cod))
-            st.success(f"Foram processadas {len(codigos)} etiquetas.")
-            st.download_button("📥 Baixar ZIP da Lista", buf.getvalue(), "lote_lista_personalizada.zip")
-
-# RODAPÉ DE CRÉDITOS
-st.markdown(f"""
-    <div class="footer">
-        Desenvolvido por João Vitor de Campos Leandro Silva | 2026
-    </div>
-    """, unsafe_allow_stats=True)
+            st.download_button("📥 Baixar ZIP da Lista", buf.getvalue(), "lista.zip")
