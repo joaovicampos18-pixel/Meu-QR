@@ -10,17 +10,14 @@ import pytz
 # 1. Configuracao da Pagina
 st.set_page_config(page_title="Gerador de LPN/QR Code", page_icon="📟", layout="wide")
 
-# 2. Rodape Discreto
+# 2. Estilo e Creditos Aparentes (Nome Completo Atualizado)
 st.markdown("""
     <style>
-    .footer { 
-        position: fixed; left: 0; bottom: 0; width: 100%; 
-        background-color: rgba(255, 255, 255, 0.8); 
-        color: #999; text-align: right; padding: 5px 20px; 
-        font-size: 10px; z-index: 999; 
-    }
+    .main-title { font-size: 32px; font-weight: bold; color: #1E1E1E; margin-bottom: 0px; }
+    .dev-credits { font-size: 14px; color: #555; margin-bottom: 20px; border-bottom: 1px solid #DDD; padding-bottom: 10px; }
     </style>
-    <div class="footer">Dev: J.V.C.L. Silva | 2026</div>
+    <div class="main-title">Gerador de LPN/QR Code</div>
+    <div class="dev-credits">Desenvolvido por: <b>Joao Vitor de Campos Leandro Silva</b> | 2026</div>
     """, unsafe_allow_html=True)
 
 def conectar():
@@ -80,7 +77,6 @@ def gerar_etiqueta_larga_pil(lista_codigos):
             draw.text(((canvas_w - w_t) / 2, 25), titulo, fill="black", font=font_t)
 
     largura_item = 3150 / 7
-    # Linhas divisorias grossas
     for i in range(1, 7):
         x_l = i * largura_item
         draw.line([(x_l, 120), (x_l, 780)], fill="black", width=8)
@@ -89,21 +85,17 @@ def gerar_etiqueta_larga_pil(lista_codigos):
         qr = qrcode.QRCode(version=1, box_size=14, border=1)
         qr.add_data(str(cod))
         qr.make(fit=True)
-        qr_img = qr.paste_image = qr.make_image(fill_color="black", back_color="white").convert('RGB')
-        
+        qr_img = qr.make_image(fill_color="black", back_color="white").convert('RGB')
         x_item = i * largura_item
         offset_qr = (largura_item - qr_img.size[0]) / 2
         x_final = x_item + offset_qr
-        
         w_c = draw.textlength(str(cod), font=font_c)
         offset_txt = (qr_img.size[0] - w_c) / 2
-        
         draw.text((x_final + offset_txt, 140), str(cod), fill="black", font=font_c)
         canvas.paste(qr_img, (int(x_final), 220))
     return canvas
 
 # --- INTERFACE ---
-st.title("Gerador de LPN/QR Code")
 prox = buscar_ultimo() + 1
 st.metric(label="Proximo Codigo", value=f"{prox:08d}")
 
@@ -126,34 +118,4 @@ with t2:
     m = st.text_input("Codigo (10x6.5):", key="k2")
     if m:
         st.image(gerar_etiqueta_pil(m), width=500)
-        if st.button("GERAR MANUAL", key="b2"):
-            pdf2 = FPDF(orientation='L', unit='mm', format=(65, 100))
-            pdf2.add_page()
-            pdf2.image(gerar_etiqueta_pil(m), x=5, y=5, w=90)
-            st.download_button("Baixar PDF", bytes(pdf2.output()), "manual.pdf")
-
-with t3:
-    l = st.text_area("Lista (10x6.5):", height=150, key="k3")
-    if l:
-        cs = [c.strip() for c in l.split("\n") if c.strip()]
-        if cs:
-            st.image(gerar_etiqueta_pil(cs[0]), width=500)
-            if st.button("GERAR LISTA", key="b3"):
-                pdf3 = FPDF(orientation='L', unit='mm', format=(65, 100))
-                for c in cs:
-                    pdf3.add_page()
-                    pdf3.image(gerar_etiqueta_pil(c), x=5, y=5, w=90)
-                st.download_button("Baixar PDF", bytes(pdf3.output()), "lista.pdf")
-
-with t4:
-    lg = st.text_area("Codigos (31.5x8):", height=150, key="k4")
-    if lg:
-        it = [e.strip() for e in lg.split("\n") if e.strip()]
-        if it:
-            st.image(gerar_etiqueta_larga_pil(it[:7]), use_container_width=True)
-            if st.button("GERAR LARGA", key="b4"):
-                pdf4 = FPDF(orientation='L', unit='mm', format=(80, 315))
-                for i in range(0, len(it), 7):
-                    pdf4.add_page()
-                    pdf4.image(gerar_etiqueta_larga_pil(it[i:i+7]), x=0, y=0, w=315, h=80)
-                st.download_button("Baixar PDF", bytes(pdf4.output()), "larga.pdf")
+        if st.button("GERAR
