@@ -40,11 +40,8 @@ def gerar_etiqueta_pil(conteudo):
     qr.make(fit=True)
     qr_img = qr.make_image(fill_color="black", back_color="white").convert('RGB')
     
-    # CORREÇÃO DO ERRO: Soma as dimensões individualmente
     qr_w, qr_h = qr_img.size
-    canvas_w = qr_w + 120
-    canvas_h = qr_h + 100
-    
+    canvas_w, canvas_h = qr_w + 120, qr_h + 100
     canvas = Image.new('RGB', (canvas_w, canvas_h), 'white')
     draw = ImageDraw.Draw(canvas)
     
@@ -73,30 +70,26 @@ with tab_auto:
     qtd = st.number_input("Quantidade:", min_value=1, max_value=200, value=10)
     if st.button("🚀 GERAR PDF E SALVAR", use_container_width=True):
         inicio, fim = proximo, proximo + qtd - 1
-        
-        # PDF formatado para etiquetas comuns de 80mm x 40mm
         pdf = FPDF(orientation='L', unit='mm', format=(40, 80))
         
         for i in range(qtd):
             num_str = f"{(inicio + i):08d}"
             img = gerar_etiqueta_pil(num_str)
-            
-            img_byte_arr = BytesIO()
-            img.save(img_byte_arr, format='PNG')
+            img_io = BytesIO()
+            img.save(img_io, format='PNG')
             
             pdf.add_page()
-            # Ajusta a imagem para preencher bem a etiqueta Zebra
-            pdf.image(img_byte_arr, x=2, y=2, w=76) 
+            # AQUI ESTÁ A CORREÇÃO: Adicionado type='PNG'
+            pdf.image(img_io, x=2, y=2, w=76, type='PNG') 
 
         pdf_output = pdf.output(dest='S')
         
         try:
             supabase.table("registros_etiquetas").insert({"inicio": inicio, "fim": fim, "quantidade": qtd}).execute()
-            st.success(f"Lote {inicio:08d} a {fim:08d} processado!")
+            st.success(f"Lote {inicio:08d} a {fim:08d} salvo!")
             st.download_button("📥 Baixar PDF para Zebra", pdf_output, f"lote_{inicio}.pdf", "application/pdf")
         except:
-            st.error("Erro ao salvar no banco, mas você ainda pode baixar o PDF.")
-            st.download_button("📥 Baixar PDF mesmo assim", pdf_output, f"lote_{inicio}.pdf", "application/pdf")
+            st.download_button("📥 Baixar PDF (Erro no Banco)", pdf_output, f"lote_{inicio}.pdf", "application/pdf")
 
 with tab_man:
     txt = st.text_input("Código único:")
@@ -104,14 +97,14 @@ with tab_man:
         if txt:
             pdf = FPDF(orientation='L', unit='mm', format=(40, 80))
             img = gerar_etiqueta_pil(txt)
-            img_byte_arr = BytesIO()
-            img.save(img_byte_arr, format='PNG')
+            img_io = BytesIO()
+            img.save(img_io, format='PNG')
             pdf.add_page()
-            pdf.image(img_byte_arr, x=2, y=2, w=76)
+            pdf.image(img_io, x=2, y=2, w=76, type='PNG')
             st.download_button("📥 Baixar PDF", pdf.output(dest='S'), "etiqueta.pdf")
 
 with tab_list:
-    lista = st.text_area("Cole a lista (um por linha):", height=150)
+    lista = st.text_area("Cole a lista:", height=150)
     if st.button("📦 Gerar Lote da Lista"):
         codigos = [c.strip() for c in lista.split("\n") if c.strip()]
         if codigos:
@@ -121,5 +114,5 @@ with tab_list:
                 img_io = BytesIO()
                 img.save(img_io, format='PNG')
                 pdf.add_page()
-                pdf.image(img_io, x=2, y=2, w=76)
+                pdf.image(img_io, x=2, y=2, w=76, type='PNG')
             st.download_button("📥 Baixar PDF da Lista", pdf.output(dest='S'), "lista.pdf")
