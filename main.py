@@ -64,7 +64,7 @@ def gerar_etiqueta_pil(conteudo):
     return canvas
 
 # --- INTERFACE ---
-st.title("📟 Gerador Zebra com Pré-visualização")
+st.title("📟 Gerador Zebra com Multi-Preview")
 
 proximo = buscar_ultimo() + 1
 st.metric(label="Próximo Código Sequencial", value=f"{proximo:08d}")
@@ -74,25 +74,29 @@ tab_auto, tab_man, tab_list = st.tabs(["⚡ Automático", "🎯 Manual", "📋 L
 with tab_auto:
     qtd = st.number_input("Quantidade:", min_value=1, max_value=200, value=10)
     
-    # Pré-visualização da primeira etiqueta do lote
     st.write("---")
-    st.subheader("👁️ Pré-visualização (Exemplo da 1ª etiqueta):")
-    amostra = gerar_etiqueta_pil(f"{proximo:08d}")
-    st.image(amostra, width=300, caption=f"Amostra: {proximo:08d}")
+    st.subheader(f"👁️ Pré-visualização das primeiras etiquetas:")
+    
+    # Gerar os 10 primeiros (ou a quantidade total se for menor que 10)
+    limite_preview = min(qtd, 10)
+    cols = st.columns(5) # Exibe em 5 colunas para poupar espaço
+    for i in range(limite_preview):
+        num_preview = f"{(proximo + i):08d}"
+        img_preview = gerar_etiqueta_pil(num_preview)
+        with cols[i % 5]:
+            st.image(img_preview, caption=num_preview, use_container_width=True)
+    
     st.write("---")
 
-    if st.button("🚀 GERAR PDF E SALVAR LOTE", use_container_width=True):
+    if st.button("🚀 GERAR PDF COMPLETO E SALVAR", use_container_width=True):
         inicio, fim = proximo, proximo + qtd - 1
         pdf = FPDF(orientation='L', unit='mm', format=(40, 80))
-        
         for i in range(qtd):
             num_str = f"{(inicio + i):08d}"
-            img = gerar_etiqueta_pil(num_str)
             pdf.add_page()
-            pdf.image(img, x=2, y=2, w=76) 
-
-        pdf_output = pdf.output()
+            pdf.image(gerar_etiqueta_pil(num_str), x=2, y=2, w=76) 
         
+        pdf_output = pdf.output()
         try:
             supabase.table("registros_etiquetas").insert({"inicio": inicio, "fim": fim, "quantidade": qtd}).execute()
             st.success(f"Lote {inicio:08d} a {fim:08d} salvo!")
@@ -103,33 +107,32 @@ with tab_auto:
 with tab_man:
     txt = st.text_input("Código único:")
     if txt:
-        img_preview = gerar_etiqueta_pil(txt)
-        st.image(img_preview, width=300, caption="Pré-visualização da etiqueta manual")
-        
+        st.image(gerar_etiqueta_pil(txt), width=300)
     if st.button("🎨 Gerar PDF Avulso"):
         if txt:
             pdf = FPDF(orientation='L', unit='mm', format=(40, 80))
-            img = gerar_etiqueta_pil(txt)
             pdf.add_page()
-            pdf.image(img, x=2, y=2, w=76)
+            pdf.image(gerar_etiqueta_pil(txt), x=2, y=2, w=76)
             st.download_button("📥 Baixar PDF", bytes(pdf.output()), "etiqueta_avulsa.pdf")
 
 with tab_list:
     lista = st.text_area("Cole a lista:", height=150)
-    
     if lista:
         codigos_pre = [c.strip() for c in lista.split("\n") if c.strip()]
         if codigos_pre:
-            st.info(f"Total de {len(codigos_pre)} etiquetas detectadas.")
-            st.subheader("👁️ Amostra do primeiro item colado:")
-            st.image(gerar_etiqueta_pil(codigos_pre[0]), width=300)
+            st.info(f"{len(codigos_pre)} etiquetas detectadas.")
+            st.subheader("👁️ Amostra das 10 primeiras da lista:")
+            limite_list = min(len(codigos_pre), 10)
+            cols_l = st.columns(5)
+            for j in range(limite_list):
+                with cols_l[j % 5]:
+                    st.image(gerar_etiqueta_pil(codigos_pre[j]), caption=codigos_pre[j], use_container_width=True)
 
     if st.button("📦 Gerar PDF da Lista"):
         codigos = [c.strip() for c in lista.split("\n") if c.strip()]
         if codigos:
             pdf = FPDF(orientation='L', unit='mm', format=(40, 80))
             for cod in codigos:
-                img = gerar_etiqueta_pil(cod)
                 pdf.add_page()
-                pdf.image(img, x=2, y=2, w=76)
+                pdf.image(gerar_etiqueta_pil(cod), x=2, y=2, w=76)
             st.download_button("📥 Baixar PDF da Lista", bytes(pdf.output()), "lista.pdf")
