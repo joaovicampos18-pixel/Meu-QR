@@ -2,5 +2,5 @@ streamlit
 supabase
 qrcode
 pillow
-fpdf
+fpdf2
 pandas
