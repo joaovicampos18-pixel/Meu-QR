@@ -64,7 +64,7 @@ def gerar_etiqueta_pil(conteudo):
     canvas.paste(qr_img, (110, 80))
     return canvas
 
-# 5. Interface Principal
+# --- INTERFACE ---
 st.title("📟 Gerador Zebra PDF")
 
 proximo = buscar_ultimo() + 1
@@ -72,21 +72,25 @@ st.metric(label="Próximo Código Sequencial", value=f"{proximo:08d}")
 
 tab_auto, tab_man, tab_list = st.tabs(["⚡ Automático", "🎯 Manual", "📋 Lista"])
 
-# --- ABA AUTOMÁTICA ---
 with tab_auto:
     qtd = st.number_input("Quantidade:", min_value=1, max_value=200, value=10)
     if st.button("🚀 GERAR PDF E SALVAR", use_container_width=True):
         inicio, fim = proximo, proximo + qtd - 1
-        # Formato Zebra 80x40mm (Horizontal)
         pdf = FPDF(orientation='L', unit='mm', format=(40, 80))
         
         for i in range(qtd):
             num_str = f"{(inicio + i):08d}"
             img = gerar_etiqueta_pil(num_str)
             
+            # Converte para bytes e usa um nome temporário para a biblioteca aceitar
+            img_io = BytesIO()
+            img.save(img_io, format='PNG')
+            img_io.seek(0)
+            
             pdf.add_page()
-            # MUDANÇA AQUI: Passamos a imagem PIL diretamente e usamos fpdf2 moderno
-            pdf.image(img, x=2, y=2, w=76) 
+            # O truque está em passar o objeto de memória com um nome fictício
+            pdf.image(img_io, x=2, y=2, w=76, type='PNG') 
+            img_io.close()
 
         pdf_output = pdf.output(dest='S')
         
@@ -95,21 +99,21 @@ with tab_auto:
             st.success(f"Lote {inicio:08d} a {fim:08d} salvo!")
             st.download_button("📥 Baixar PDF para Zebra", pdf_output, f"lote_{inicio}.pdf", "application/pdf")
         except:
-            st.warning("Banco de dados ocupado, mas o PDF foi gerado.")
-            st.download_button("📥 Baixar PDF mesmo assim", pdf_output, f"lote_{inicio}.pdf", "application/pdf")
+            st.download_button("📥 Baixar PDF (Erro no Banco)", pdf_output, f"lote_{inicio}.pdf", "application/pdf")
 
-# --- ABA MANUAL ---
 with tab_man:
     txt = st.text_input("Código único:")
     if st.button("🎨 Gerar PDF Avulso"):
         if txt:
             pdf = FPDF(orientation='L', unit='mm', format=(40, 80))
             img = gerar_etiqueta_pil(txt)
+            img_io = BytesIO()
+            img.save(img_io, format='PNG')
+            img_io.seek(0)
             pdf.add_page()
-            pdf.image(img, x=2, y=2, w=76)
+            pdf.image(img_io, x=2, y=2, w=76, type='PNG')
             st.download_button("📥 Baixar PDF", pdf.output(dest='S'), "etiqueta_avulsa.pdf")
 
-# --- ABA LISTA ---
 with tab_list:
     lista = st.text_area("Cole a lista:", height=150)
     if st.button("📦 Gerar Lote da Lista"):
@@ -118,6 +122,9 @@ with tab_list:
             pdf = FPDF(orientation='L', unit='mm', format=(40, 80))
             for cod in codigos:
                 img = gerar_etiqueta_pil(cod)
+                img_io = BytesIO()
+                img.save(img_io, format='PNG')
+                img_io.seek(0)
                 pdf.add_page()
-                pdf.image(img, x=2, y=2, w=76)
+                pdf.image(img_io, x=2, y=2, w=76, type='PNG')
             st.download_button("📥 Baixar PDF da Lista", pdf.output(dest='S'), "lista.pdf")
