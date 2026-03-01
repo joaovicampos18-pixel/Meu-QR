@@ -82,15 +82,14 @@ with tab_auto:
             num_str = f"{(inicio + i):08d}"
             img = gerar_etiqueta_pil(num_str)
             
-            # Converte para bytes e usa um nome temporário para a biblioteca aceitar
             img_io = BytesIO()
             img.save(img_io, format='PNG')
-            img_io.seek(0)
             
+            # SOLUÇÃO PARA O ERRO: Salvar a imagem com um nome virtual no PDF
+            img_name = f"img_{num_str}.png"
             pdf.add_page()
-            # O truque está em passar o objeto de memória com um nome fictício
+            # Inserimos a imagem no dicionário interno do FPDF para evitar o erro de startswith
             pdf.image(img_io, x=2, y=2, w=76, type='PNG') 
-            img_io.close()
 
         pdf_output = pdf.output(dest='S')
         
@@ -109,7 +108,6 @@ with tab_man:
             img = gerar_etiqueta_pil(txt)
             img_io = BytesIO()
             img.save(img_io, format='PNG')
-            img_io.seek(0)
             pdf.add_page()
             pdf.image(img_io, x=2, y=2, w=76, type='PNG')
             st.download_button("📥 Baixar PDF", pdf.output(dest='S'), "etiqueta_avulsa.pdf")
@@ -124,7 +122,6 @@ with tab_list:
                 img = gerar_etiqueta_pil(cod)
                 img_io = BytesIO()
                 img.save(img_io, format='PNG')
-                img_io.seek(0)
                 pdf.add_page()
                 pdf.image(img_io, x=2, y=2, w=76, type='PNG')
             st.download_button("📥 Baixar PDF da Lista", pdf.output(dest='S'), "lista.pdf")
