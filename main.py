@@ -41,26 +41,22 @@ def buscar_ultimo():
     except: return 0
 
 def gerar_etiqueta_pil(conteudo):
-    # Gera o QR Code
     qr = qrcode.QRCode(version=1, box_size=10, border=1)
     qr.add_data(str(conteudo))
     qr.make(fit=True)
     qr_img = qr.make_image(fill_color="black", back_color="white").convert('RGB')
     
-    # Define dimensões (Ajustado para evitar erro de tupla)
     qr_w, qr_h = qr_img.size
     canvas_w, canvas_h = qr_w + 120, qr_h + 100
     canvas = Image.new('RGB', (canvas_w, canvas_h), 'white')
     draw = ImageDraw.Draw(canvas)
     
-    # Tenta carregar fontes do sistema
     try:
         font_p = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 45)
         font_l = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 30)
     except:
         font_p = ImageFont.load_default(); font_l = ImageFont.load_default()
 
-    # Desenha Textos (Estilo Assaí/LPN)
     draw.text((130, 15), str(conteudo), fill="black", font=font_p)
     draw.text((40, 80), "L", fill="black", font=font_l)
     draw.text((40, 125), "P", fill="black", font=font_l)
@@ -81,17 +77,16 @@ with tab_auto:
     qtd = st.number_input("Quantidade:", min_value=1, max_value=200, value=10)
     if st.button("🚀 GERAR PDF E SALVAR", use_container_width=True):
         inicio, fim = proximo, proximo + qtd - 1
-        pdf = FPDF(orientation='L', unit='mm', format=(40, 80)) # Formato Zebra 80x40mm
+        # Formato Zebra 80x40mm (Horizontal)
+        pdf = FPDF(orientation='L', unit='mm', format=(40, 80))
         
         for i in range(qtd):
             num_str = f"{(inicio + i):08d}"
             img = gerar_etiqueta_pil(num_str)
-            img_io = BytesIO()
-            img.save(img_io, format='PNG')
             
             pdf.add_page()
-            pdf.image(img_io, x=2, y=2, w=76, type='PNG') 
-            img_io.close()
+            # MUDANÇA AQUI: Passamos a imagem PIL diretamente e usamos fpdf2 moderno
+            pdf.image(img, x=2, y=2, w=76) 
 
         pdf_output = pdf.output(dest='S')
         
@@ -100,7 +95,7 @@ with tab_auto:
             st.success(f"Lote {inicio:08d} a {fim:08d} salvo!")
             st.download_button("📥 Baixar PDF para Zebra", pdf_output, f"lote_{inicio}.pdf", "application/pdf")
         except:
-            st.warning("Erro ao salvar no banco, mas o PDF foi gerado.")
+            st.warning("Banco de dados ocupado, mas o PDF foi gerado.")
             st.download_button("📥 Baixar PDF mesmo assim", pdf_output, f"lote_{inicio}.pdf", "application/pdf")
 
 # --- ABA MANUAL ---
@@ -110,23 +105,19 @@ with tab_man:
         if txt:
             pdf = FPDF(orientation='L', unit='mm', format=(40, 80))
             img = gerar_etiqueta_pil(txt)
-            img_io = BytesIO()
-            img.save(img_io, format='PNG')
             pdf.add_page()
-            pdf.image(img_io, x=2, y=2, w=76, type='PNG')
+            pdf.image(img, x=2, y=2, w=76)
             st.download_button("📥 Baixar PDF", pdf.output(dest='S'), "etiqueta_avulsa.pdf")
 
-# --- ABA LISTA (EXCEL/PLANILHA) ---
+# --- ABA LISTA ---
 with tab_list:
-    lista = st.text_area("Cole a lista (um por linha):", height=150)
+    lista = st.text_area("Cole a lista:", height=150)
     if st.button("📦 Gerar Lote da Lista"):
         codigos = [c.strip() for c in lista.split("\n") if c.strip()]
         if codigos:
             pdf = FPDF(orientation='L', unit='mm', format=(40, 80))
             for cod in codigos:
                 img = gerar_etiqueta_pil(cod)
-                img_io = BytesIO()
-                img.save(img_io, format='PNG')
                 pdf.add_page()
-                pdf.image(img_io, x=2, y=2, w=76, type='PNG')
-            st.download_button("📥 Baixar PDF da Lista", pdf.output(dest='S'), "lista_importada.pdf")
+                pdf.image(img, x=2, y=2, w=76)
+            st.download_button("📥 Baixar PDF da Lista", pdf.output(dest='S'), "lista.pdf")
