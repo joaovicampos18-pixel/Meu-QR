@@ -5,6 +5,7 @@ from PIL import Image, ImageDraw, ImageFont
 from io import BytesIO
 import pandas as pd
 from fpdf import FPDF
+from datetime import datetime
 
 # 1. Configuração da Página
 st.set_page_config(page_title="Gerador QR Pro - João Vitor", page_icon="📟", layout="wide")
@@ -38,14 +39,15 @@ def buscar_ultimo():
     except: return 0
 
 def gerar_etiqueta_pil(conteudo):
-    qr = qrcode.QRCode(version=1, box_size=12, border=1) # Aumentei o box_size para 12
+    # Gera o QR Code
+    qr = qrcode.QRCode(version=1, box_size=12, border=1)
     qr.add_data(str(conteudo))
     qr.make(fit=True)
     qr_img = qr.make_image(fill_color="black", back_color="white").convert('RGB')
     
     qr_w, qr_h = qr_img.size
     
-    # AJUSTE PARA 10x6.5cm: Largura de sobra para os 8 dígitos
+    # Canvas para 10x6.5cm
     canvas_w = qr_w + 300 
     canvas_h = qr_h + 120
     
@@ -53,27 +55,33 @@ def gerar_etiqueta_pil(conteudo):
     draw = ImageDraw.Draw(canvas)
     
     try:
-        font_p = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 60) # Fonte maior
+        font_p = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 60)
         font_l = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 35)
+        font_data = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 18) # Fonte pequena para data
     except:
         font_p = ImageFont.load_default()
         font_l = ImageFont.load_default()
+        font_data = ImageFont.load_default()
 
-    # Posição do Texto Principal (centralizado em relação ao espaço extra)
+    # Código Principal
     draw.text((150, 20), str(conteudo), fill="black", font=font_p)
     
-    # Letras Laterais L P N
+    # Legendas L P N
     draw.text((40, 100), "L", fill="black", font=font_l)
     draw.text((40, 160), "P", fill="black", font=font_l)
     draw.text((40, 220), "N", fill="black", font=font_l)
     
-    # Cola o QR Code à direita das letras
+    # Data e Hora (Canto inferior direito)
+    data_str = datetime.now().strftime("%d/%m/%Y %H:%M")
+    draw.text((canvas_w - 180, canvas_h - 30), data_str, fill="gray", font=font_data)
+    
+    # QR Code
     canvas.paste(qr_img, (130, 100))
     
     return canvas
 
 # --- INTERFACE ---
-st.title("📟 Gerador Zebra (100x65mm)")
+st.title("📟 Gerador Zebra (10x6.5cm) com Data")
 
 proximo = buscar_ultimo() + 1
 st.metric(label="Próximo Código Sequencial", value=f"{proximo:08d}")
@@ -84,43 +92,43 @@ with tab_auto:
     qtd = st.number_input("Quantidade:", min_value=1, max_value=200, value=10)
     
     st.write("---")
-    st.subheader("👁️ Pré-visualização (Amostra Real)")
-    
-    # Amostra maior na tela para conferir o final do número
+    st.subheader("👁️ Pré-visualização com Data de Controle")
     img_preview = gerar_etiqueta_pil(f"{proximo:08d}")
-    st.image(img_preview, caption=f"Exemplo: {proximo:08d}", width=500)
-    
+    st.image(img_preview, caption=f"Amostra: {proximo:08d}", width=500)
     st.write("---")
 
     if st.button("🚀 GERAR PDF 10x6.5cm", use_container_width=True):
         inicio, fim = proximo, proximo + qtd - 1
-        # PDF EXATO: 100mm largura x 65mm altura
         pdf = FPDF(orientation='L', unit='mm', format=(65, 100))
         
         for i in range(qtd):
             num_str = f"{(inicio + i):08d}"
             pdf.add_page()
-            # Centraliza a imagem no papel de 10cm
+            # Ajustado para ocupar bem o espaço de 10cm da sua Zebra
             pdf.image(gerar_etiqueta_pil(num_str), x=5, y=5, w=90) 
         
         pdf_output = pdf.output()
         try:
-            supabase.table("registros_etiquetas").insert({"inicio": inicio, "fim": fim, "quantidade": qtd}).execute()
-            st.success(f"Lote {inicio:08d} a {fim:08d} salvo!")
-            st.download_button("📥 Baixar PDF Zebra", bytes(pdf_output), f"zebra_10x65_{inicio}.pdf", "application/pdf")
+            supabase.table("registros_etiquetas").insert({
+                "inicio": inicio, 
+                "fim": fim, 
+                "quantidade": qtd
+            }).execute()
+            st.success(f"Lote {inicio:08d} a {fim:08d} salvo no banco!")
+            st.download_button("📥 Baixar PDF Zebra", bytes(pdf_output), f"lote_{inicio}.pdf", "application/pdf")
         except:
-            st.download_button("📥 Baixar PDF (Erro Banco)", bytes(pdf_output), f"zebra_10x65_{inicio}.pdf", "application/pdf")
+            st.download_button("📥 Baixar PDF (Erro de Conexão)", bytes(pdf_output), f"lote_{inicio}.pdf", "application/pdf")
 
 with tab_man:
     txt = st.text_input("Código único:")
     if txt:
         st.image(gerar_etiqueta_pil(txt), width=500)
-    if st.button("🎨 Gerar PDF Avulso"):
+    if st.button("🎨 Gerar Etiqueta Manual"):
         if txt:
             pdf = FPDF(orientation='L', unit='mm', format=(65, 100))
             pdf.add_page()
             pdf.image(gerar_etiqueta_pil(txt), x=5, y=5, w=90)
-            st.download_button("📥 Baixar PDF", bytes(pdf.output()), "etiqueta_10x65.pdf")
+            st.download_button("📥 Baixar PDF Avulso", bytes(pdf.output()), "manual.pdf")
 
 with tab_list:
     lista = st.text_area("Cole a lista:", height=150)
@@ -136,4 +144,4 @@ with tab_list:
             for cod in codigos:
                 pdf.add_page()
                 pdf.image(gerar_etiqueta_pil(cod), x=5, y=5, w=90)
-            st.download_button("📥 Baixar PDF da Lista", bytes(pdf.output()), "lista_10x65.pdf")
+            st.download_button("📥 Baixar PDF da Lista", bytes(pdf.output()), "lista.pdf")
