@@ -3,9 +3,8 @@ from supabase import create_client
 import qrcode
 from PIL import Image, ImageDraw, ImageFont
 from io import BytesIO
-import zipfile
 import pandas as pd
-from fpdf import FPDF
+from fpdf import FPDF # fpdf2 também é importado como FPDF
 
 # 1. Configuração da Página
 st.set_page_config(page_title="Gerador QR Pro", page_icon="📟", layout="wide")
@@ -76,29 +75,24 @@ with tab_auto:
     qtd = st.number_input("Quantidade:", min_value=1, max_value=200, value=10)
     if st.button("🚀 GERAR PDF E SALVAR", use_container_width=True):
         inicio, fim = proximo, proximo + qtd - 1
+        # PDF formatado para Zebra (L=Landscape, 80x40mm)
         pdf = FPDF(orientation='L', unit='mm', format=(40, 80))
         
         for i in range(qtd):
             num_str = f"{(inicio + i):08d}"
             img = gerar_etiqueta_pil(num_str)
-            
-            img_io = BytesIO()
-            img.save(img_io, format='PNG')
-            
-            # SOLUÇÃO PARA O ERRO: Salvar a imagem com um nome virtual no PDF
-            img_name = f"img_{num_str}.png"
             pdf.add_page()
-            # Inserimos a imagem no dicionário interno do FPDF para evitar o erro de startswith
-            pdf.image(img_io, x=2, y=2, w=76, type='PNG') 
+            # Com fpdf2, podemos passar a imagem PIL diretamente
+            pdf.image(img, x=2, y=2, w=76) 
 
-        pdf_output = pdf.output(dest='S')
+        pdf_output = pdf.output() # No fpdf2, output() sem argumentos retorna bytes/bytearray
         
         try:
             supabase.table("registros_etiquetas").insert({"inicio": inicio, "fim": fim, "quantidade": qtd}).execute()
             st.success(f"Lote {inicio:08d} a {fim:08d} salvo!")
-            st.download_button("📥 Baixar PDF para Zebra", pdf_output, f"lote_{inicio}.pdf", "application/pdf")
+            st.download_button("📥 Baixar PDF para Zebra", bytes(pdf_output), f"lote_{inicio}.pdf", "application/pdf")
         except:
-            st.download_button("📥 Baixar PDF (Erro no Banco)", pdf_output, f"lote_{inicio}.pdf", "application/pdf")
+            st.download_button("📥 Baixar PDF (Erro no Banco)", bytes(pdf_output), f"lote_{inicio}.pdf", "application/pdf")
 
 with tab_man:
     txt = st.text_input("Código único:")
@@ -106,11 +100,9 @@ with tab_man:
         if txt:
             pdf = FPDF(orientation='L', unit='mm', format=(40, 80))
             img = gerar_etiqueta_pil(txt)
-            img_io = BytesIO()
-            img.save(img_io, format='PNG')
             pdf.add_page()
-            pdf.image(img_io, x=2, y=2, w=76, type='PNG')
-            st.download_button("📥 Baixar PDF", pdf.output(dest='S'), "etiqueta_avulsa.pdf")
+            pdf.image(img, x=2, y=2, w=76)
+            st.download_button("📥 Baixar PDF", bytes(pdf.output()), "etiqueta_avulsa.pdf")
 
 with tab_list:
     lista = st.text_area("Cole a lista:", height=150)
@@ -120,8 +112,6 @@ with tab_list:
             pdf = FPDF(orientation='L', unit='mm', format=(40, 80))
             for cod in codigos:
                 img = gerar_etiqueta_pil(cod)
-                img_io = BytesIO()
-                img.save(img_io, format='PNG')
                 pdf.add_page()
-                pdf.image(img_io, x=2, y=2, w=76, type='PNG')
-            st.download_button("📥 Baixar PDF da Lista", pdf.output(dest='S'), "lista.pdf")
+                pdf.image(img, x=2, y=2, w=76)
+            st.download_button("📥 Baixar PDF da Lista", bytes(pdf.output()), "lista.pdf")
