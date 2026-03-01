@@ -53,6 +53,7 @@ def gerar_etiqueta_pil(conteudo):
         font_data = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 18)
     except:
         font_p = ImageFont.load_default(); font_l = ImageFont.load_default(); font_data = ImageFont.load_default()
+    
     draw.text((150, 20), str(conteudo), fill="black", font=font_p)
     draw.text((40, 100), "L", fill="black", font=font_l); draw.text((40, 160), "P", fill="black", font=font_l); draw.text((40, 220), "N", fill="black", font=font_l)
     fuso_br = pytz.timezone('America/Sao_Paulo')
@@ -61,7 +62,7 @@ def gerar_etiqueta_pil(conteudo):
     canvas.paste(qr_img, (130, 100))
     return canvas
 
-# --- ETIQUETA LARGA (31.5x8 cm) ---
+# --- ETIQUETA LARGA (31.5x8 cm) - AJUSTE DE ESPACAMENTO PARA COLETOR ---
 def gerar_etiqueta_larga_pil(lista_codigos):
     canvas_w, canvas_h = 3150, 800
     canvas = Image.new('RGB', (canvas_w, canvas_h), 'white')
@@ -79,15 +80,25 @@ def gerar_etiqueta_larga_pil(lista_codigos):
             w_text = draw.textlength(titulo, font=font_titulo)
             draw.text(((canvas_w - w_text) / 2, 40), titulo, fill="black", font=font_titulo)
 
-    largura_item = 450 
+    # Parametros de espacamento para evitar bipe errado
+    margem_inicial = 80
+    espacamento_entre = 440 
+
     for i, cod in enumerate(lista_codigos[:7]):
-        qr = qrcode.QRCode(version=1, box_size=11, border=1)
+        # QR Code ligeiramente menor (box_size 9) e com borda maior para isolamento
+        qr = qrcode.QRCode(version=1, box_size=9, border=3)
         qr.add_data(str(cod))
         qr.make(fit=True)
         qr_img = qr.make_image(fill_color="black", back_color="white").convert('RGB')
-        x_pos = 20 + (i * largura_item)
+        
+        x_pos = margem_inicial + (i * espacamento_entre)
+        
+        # Centralizar texto do codigo sobre o seu respectivo QR
+        w_cod = draw.textlength(str(cod), font=font_cod)
+        offset_texto = (qr_img.size[0] - w_cod) / 2
+        
+        draw.text((x_pos + offset_texto, 200), str(cod), fill="black", font=font_cod)
         canvas.paste(qr_img, (x_pos, 280))
-        draw.text((x_pos + 30, 200), str(cod), fill="black", font=font_cod)
     return canvas
 
 # --- INTERFACE ---
@@ -97,7 +108,6 @@ st.metric(label="Proximo Codigo Sequencial", value=f"{proximo:08d}")
 
 tab_auto, tab_man, tab_list, tab_larga = st.tabs(["Automatico", "Manual", "Lista", "Etiqueta Larga"])
 
-# ABA 1: AUTOMATICO (Sequencial)
 with tab_auto:
     qtd = st.number_input("Quantidade (10x6.5):", min_value=1, max_value=200, value=10, key="q_auto")
     st.subheader("Pre-visualizacao")
@@ -111,12 +121,10 @@ with tab_auto:
         pdf_out = pdf.output()
         try:
             supabase.table("registros_etiquetas").insert({"inicio": inicio, "fim": fim, "quantidade": qtd}).execute()
-            st.success(f"Lote {inicio:08d} a {fim:08d} salvo!")
+            st.success(f"Lote {inicio:08d} a {fim:08d} salvo")
             st.download_button("Baixar PDF Automático", bytes(pdf_out), f"lote_{inicio}.pdf", "application/pdf")
-        except:
-            st.download_button("Baixar PDF (Erro DB)", bytes(pdf_out), f"lote_{inicio}.pdf", "application/pdf")
+        except: st.download_button("Baixar PDF (Erro DB)", bytes(pdf_out), f"lote_{inicio}.pdf", "application/pdf")
 
-# ABA 2: MANUAL (Unitário)
 with tab_man:
     txt_m = st.text_input("Digite o codigo (10x6.5):", key="in_man")
     if txt_m:
@@ -124,11 +132,9 @@ with tab_man:
         st.image(gerar_etiqueta_pil(txt_m), width=500)
         if st.button("GERAR PDF MANUAL", key="btn_ind"):
             pdf_m = FPDF(orientation='L', unit='mm', format=(65, 100))
-            pdf_m.add_page()
-            pdf_m.image(gerar_etiqueta_pil(txt_m), x=5, y=5, w=90)
+            pdf_m.add_page(); pdf_m.image(gerar_etiqueta_pil(txt_m), x=5, y=5, w=90)
             st.download_button("Baixar PDF Manual", bytes(pdf_m.output()), "individual.pdf", "application/pdf")
 
-# ABA 3: LISTA (Multiplos 10x6.5)
 with tab_list:
     txt_l = st.text_area("Cole a lista (um por linha):", height=150, key="ta_list")
     if txt_l:
@@ -138,19 +144,16 @@ with tab_list:
             st.image(gerar_etiqueta_pil(cods[0]), width=500)
             if st.button("GERAR PDF DA LISTA", key="btn_list_pdf"):
                 pdf_l = FPDF(orientation='L', unit='mm', format=(65, 100))
-                for c in cods:
-                    pdf_l.add_page()
-                    pdf_l.image(gerar_etiqueta_pil(c), x=5, y=5, w=90)
-                st.download_button("Baixar PDF Lista", bytes(pdf_l.output()), "lista_etiquetas.pdf", "application/pdf")
+                for c in cods: pdf_l.add_page(); pdf_l.image(gerar_etiqueta_pil(c), x=5, y=5, w=90)
+                st.download_button("Baixar PDF Lista", bytes(pdf_l.output()), "lista.pdf", "application/pdf")
 
-# ABA 4: ETIQUETA LARGA (31.5x8 cm)
 with tab_larga:
     st.subheader("Etiqueta de Rua/Posicao (31.5 x 8 cm)")
     txt_lg = st.text_area("Cole os codigos (Ex: 001.002.7):", height=200, key="ta_larga")
     if txt_lg:
         itens = [e.strip() for e in txt_lg.split("\n") if e.strip()]
         if itens:
-            st.subheader("Pre-visualizacao (Sete por pagina)")
+            st.subheader("Pre-visualizacao (Sete por pagina com espacamento)")
             st.image(gerar_etiqueta_larga_pil(itens[:7]), use_container_width=True)
             if st.button("GERAR PDF ETIQUETA LARGA", key="btn_lg_pdf"):
                 pdf_lg = FPDF(orientation='L', unit='mm', format=(80, 315))
