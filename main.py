@@ -3,59 +3,61 @@ import qrcode
 from io import BytesIO
 import zipfile
 
-# Título da página
+# Configuração da página
 st.set_page_config(page_title="Gerador QR Pro", page_icon="📟")
 
-# Inicializa o contador na memória da sessão (evita o erro de input)
+# Inicializa o contador na memória da sessão
 if 'contador' not in st.session_state:
     st.session_state.contador = 0
 
 st.title("📟 Gerador de QR Code Sequencial")
-st.markdown("---")
+st.write("---")
 
 # Mostra o status atual
-proximo_disponivel = st.session_state.contador + 1
-st.write(f"### ➡️ Próximo número: `{{proximo_disponivel:08d}}`")
+proximo_inicio = st.session_state.contador + 1
+st.write(f"### ➡️ Próximo número: `{{proximo_inicio:08d}}`")
 
-# Interface do usuário (em vez de usar input())
-col1, col2 = st.columns(2)
+# Entrada de quantidade
+qtd = st.number_input("Quantas etiquetas gerar no lote?", min_value=1, max_value=1000, value=20, step=1)
 
-with col1:
-    qtd = st.number_input("Quantas etiquetas?", min_value=1, max_value=500, value=10, step=1)
+# Botão de ação
+if st.button(f"🚀 Gerar {{qtd}} Etiquetas agora"):
+    zip_buffer = BytesIO()
+    
+    # Criamos o arquivo ZIP
+    with zipfile.ZipFile(zip_buffer, "w") as zip_file:
+        for i in range(qtd):
+            # Cálculo preciso do número atual dentro do loop
+            num_atual = proximo_inicio + i
+            num_str = f"{{num_atual:08d}}" # Garante os 8 dígitos sempre
+            
+            # Gera o QR Code
+            img = qrcode.make(num_str)
+            
+            # Salva a imagem em memória
+            img_buffer = BytesIO()
+            img.save(img_buffer, format="PNG")
+            
+            # Adiciona ao ZIP com nome organizado
+            zip_file.writestr(f"QR_{{num_str}}.png", img_buffer.getvalue())
+    
+    # Só atualizamos o contador global DEPOIS de gerar tudo com sucesso
+    st.session_state.contador += qtd
+    
+    # Prepara o download
+    st.success(f"✅ Sucesso! Geradas {{qtd}} etiquetas (de {{proximo_inicio:08d}} até {{st.session_state.contador:08d}})")
+    
+    st.download_button(
+        label="📩 BAIXAR ARQUIVO ZIP",
+        data=zip_buffer.getvalue(),
+        file_name=f"lote_{{proximo_inicio:08d}}_a_{{st.session_state.contador:08d}}.zip",
+        mime="application/zip"
+    )
 
-with col2:
-    st.write(" ") # Espaçamento
-    if st.button("🚀 Gerar e Baixar ZIP"):
-        zip_buffer = BytesIO()
-        
-        with zipfile.ZipFile(zip_buffer, "a") as zip_file:
-            for i in range(qtd):
-                num_atual = proximo_disponivel + i
-                num_str = f"{{num_atual:08d}}"
-                
-                # Criação do QR
-                img = qrcode.make(num_str)
-                buf = BytesIO()
-                img.save(buf, format="PNG")
-                
-                # Adiciona ao pacote
-                zip_file.writestr(f"QR_{{num_str}}.png", buf.getvalue())
-        
-        # Atualiza a contagem para a próxima vez
-        st.session_state.contador += qtd
-        
-        st.success(f"✅ Geradas {{qtd}} etiquetas!")
-        st.download_button(
-            label="📩 Clique para Baixar o ZIP",
-            data=zip_buffer.getvalue(),
-            file_name=f"lote_{{proximo_disponivel:08d}}.zip",
-            mime="application/zip"
-        )
-
-st.markdown("---")
-# Opção de resetar caso precise recomeçar
-with st.expander("🛠️ Opções Avançadas"):
-    novo_inicio = st.number_input("Ajustar contador para:", min_value=0, value=st.session_state.contador)
-    if st.button("Salvar Novo Valor"):
-        st.session_state.contador = novo_inicio
+st.write("---")
+# Opção de reset/ajuste manual
+with st.expander("🛠️ Ajuste Manual do Contador"):
+    valor_manual = st.number_input("Mudar contador para:", min_value=0, value=st.session_state.contador)
+    if st.button("Confirmar Alteração"):
+        st.session_state.contador = valor_manual
         st.rerun()
