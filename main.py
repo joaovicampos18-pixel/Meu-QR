@@ -97,4 +97,37 @@ with tab_auto:
         
         pdf_output = pdf.output()
         try:
-            supabase.table("registros
+            supabase.table("registros_etiquetas").insert({"inicio": inicio, "fim": fim, "quantidade": qtd}).execute()
+            st.success(f"Lote {inicio:08d} a {fim:08d} salvo")
+            st.download_button("Baixar PDF", bytes(pdf_output), f"lote_{inicio}.pdf", "application/pdf")
+        except:
+            st.download_button("Baixar PDF (Erro de Conexao)", bytes(pdf_output), f"lote_{inicio}.pdf", "application/pdf")
+
+with tab_man:
+    txt = st.text_input("Codigo unico:")
+    if txt:
+        st.subheader("Pre-visualizacao")
+        st.image(gerar_etiqueta_pil(txt), width=500)
+    if st.button("Gerar PDF Avulso"):
+        if txt:
+            pdf = FPDF(orientation='L', unit='mm', format=(65, 100))
+            pdf.add_page()
+            pdf.image(gerar_etiqueta_pil(txt), x=5, y=5, w=90)
+            st.download_button("Baixar PDF Individual", bytes(pdf.output()), "individual.pdf")
+
+with tab_list:
+    lista = st.text_area("Cole a lista (um codigo por linha):", height=150)
+    if lista:
+        codigos_pre = [c.strip() for c in lista.split("\n") if c.strip()]
+        if codigos_pre:
+            st.subheader("Pre-visualizacao")
+            st.image(gerar_etiqueta_pil(codigos_pre[0]), width=500)
+
+    if st.button("Gerar PDF da Lista"):
+        codigos = [c.strip() for c in lista.split("\n") if c.strip()]
+        if codigos:
+            pdf = FPDF(orientation='L', unit='mm', format=(65, 100))
+            for cod in codigos:
+                pdf.add_page()
+                pdf.image(gerar_etiqueta_pil(cod), x=5, y=5, w=90)
+            st.download_button("Baixar PDF da Lista", bytes(pdf.output()), "lista.pdf")
