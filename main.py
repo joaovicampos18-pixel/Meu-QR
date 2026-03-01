@@ -1,49 +1,61 @@
+import streamlit as st
 import qrcode
-from PIL import Image
-import os
+from io import BytesIO
+import zipfile
 
-def create_qr_code(data, filename="qr_code.png"):
-    """
-    Creates a QR code from the given data and saves it as an image.
-    
-    Args:
-        data (str): The data to encode in the QR code
-        filename (str): The output filename for the QR code image
-    """
-    try:
-        # Create QR code instance
-        qr = qrcode.QRCode(
-            version=1,
-            error_correction=qrcode.constants.ERROR_CORRECT_L,
-            box_size=10,
-            border=4,
+# Título da página
+st.set_page_config(page_title="Gerador QR Pro", page_icon="📟")
+
+# Inicializa o contador na memória da sessão (evita o erro de input)
+if 'contador' not in st.session_state:
+    st.session_state.contador = 0
+
+st.title("📟 Gerador de QR Code Sequencial")
+st.markdown("---")
+
+# Mostra o status atual
+proximo_disponivel = st.session_state.contador + 1
+st.write(f"### ➡️ Próximo número: `{{proximo_disponivel:08d}}`")
+
+# Interface do usuário (em vez de usar input())
+col1, col2 = st.columns(2)
+
+with col1:
+    qtd = st.number_input("Quantas etiquetas?", min_value=1, max_value=500, value=10, step=1)
+
+with col2:
+    st.write(" ") # Espaçamento
+    if st.button("🚀 Gerar e Baixar ZIP"):
+        zip_buffer = BytesIO()
+        
+        with zipfile.ZipFile(zip_buffer, "a") as zip_file:
+            for i in range(qtd):
+                num_atual = proximo_disponivel + i
+                num_str = f"{{num_atual:08d}}"
+                
+                # Criação do QR
+                img = qrcode.make(num_str)
+                buf = BytesIO()
+                img.save(buf, format="PNG")
+                
+                # Adiciona ao pacote
+                zip_file.writestr(f"QR_{{num_str}}.png", buf.getvalue())
+        
+        # Atualiza a contagem para a próxima vez
+        st.session_state.contador += qtd
+        
+        st.success(f"✅ Geradas {{qtd}} etiquetas!")
+        st.download_button(
+            label="📩 Clique para Baixar o ZIP",
+            data=zip_buffer.getvalue(),
+            file_name=f"lote_{{proximo_disponivel:08d}}.zip",
+            mime="application/zip"
         )
-        
-        # Add data and optimize
-        qr.add_data(data)
-        qr.make(fit=True)
-        
-        # Create an image from the QR code
-        img = qr.make_image(fill_color="black", back_color="white")
-        
-        # Save the image
-        img.save(filename)
-        print(f"QR code saved as {filename}")
-        return True
-    except Exception as e:
-        print(f"Error creating QR code: {e}")
-        return False
 
-def main():
-    """Main function to demonstrate QR code generation"""
-    # Example usage
-    data = input("Enter the data to encode in QR code: ")
-    filename = input("Enter the output filename (default: qr_code.png): ") or "qr_code.png"
-    
-    if create_qr_code(data, filename):
-        print("QR code generated successfully!")
-    else:
-        print("Failed to generate QR code.")
-
-if __name__ == "__main__":
-    main()
+st.markdown("---")
+# Opção de resetar caso precise recomeçar
+with st.expander("🛠️ Opções Avançadas"):
+    novo_inicio = st.number_input("Ajustar contador para:", min_value=0, value=st.session_state.contador)
+    if st.button("Salvar Novo Valor"):
+        st.session_state.contador = novo_inicio
+        st.rerun()
