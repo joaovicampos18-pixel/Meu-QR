@@ -6,12 +6,12 @@ from io import BytesIO
 import pandas as pd
 from fpdf import FPDF
 from datetime import datetime
-import pytz # Biblioteca para fuso horário
+import pytz
 
-# 1. Configuração da Página
-st.set_page_config(page_title="Gerador QR Pro - João Vitor", page_icon="📟", layout="wide")
+# 1. Configuracao da Pagina
+st.set_page_config(page_title="Gerador de LPN/QR Code", page_icon="📟", layout="wide")
 
-# 2. Rodapé Discreto
+# 2. Rodape Discreto
 st.markdown("""
     <style>
     .footer { 
@@ -62,7 +62,6 @@ def gerar_etiqueta_pil(conteudo):
     draw.text((40, 160), "P", fill="black", font=font_l)
     draw.text((40, 220), "N", fill="black", font=font_l)
     
-    # CORREÇÃO DO FUSO HORÁRIO
     fuso_br = pytz.timezone('America/Sao_Paulo')
     data_br = datetime.now(fuso_br).strftime("%d/%m/%Y %H:%M")
     draw.text((canvas_w - 180, canvas_h - 30), data_br, fill="gray", font=font_data)
@@ -71,23 +70,23 @@ def gerar_etiqueta_pil(conteudo):
     return canvas
 
 # --- INTERFACE ---
-st.title("📟 Gerador Zebra (100x65mm) - Horário Brasília")
+st.title("Gerador de LPN/QR Code")
 
 proximo = buscar_ultimo() + 1
-st.metric(label="Próximo Código Sequencial", value=f"{proximo:08d}")
+st.metric(label="Proximo Codigo Sequencial", value=f"{proximo:08d}")
 
-tab_auto, tab_man, tab_list = st.tabs(["⚡ Automático", "🎯 Manual", "📋 Lista"])
+tab_auto, tab_man, tab_list = st.tabs(["Automatico", "Manual", "Lista"])
 
 with tab_auto:
     qtd = st.number_input("Quantidade:", min_value=1, max_value=200, value=10)
     
     st.write("---")
-    st.subheader("👁️ Pré-visualização (Amostra com Hora de Brasília)")
+    st.subheader("Pre-visualizacao")
     img_preview = gerar_etiqueta_pil(f"{proximo:08d}")
-    st.image(img_preview, caption=f"Amostra: {proximo:08d}", width=500)
+    st.image(img_preview, width=500)
     st.write("---")
 
-    if st.button("🚀 GERAR PDF 10x6.5cm", use_container_width=True):
+    if st.button("GERAR PDF E SALVAR", use_container_width=True):
         inicio, fim = proximo, proximo + qtd - 1
         pdf = FPDF(orientation='L', unit='mm', format=(65, 100))
         
@@ -98,10 +97,4 @@ with tab_auto:
         
         pdf_output = pdf.output()
         try:
-            supabase.table("registros_etiquetas").insert({"inicio": inicio, "fim": fim, "quantidade": qtd}).execute()
-            st.success(f"Lote {inicio:08d} a {fim:08d} salvo!")
-            st.download_button("📥 Baixar PDF Zebra", bytes(pdf_output), f"lote_{inicio}.pdf", "application/pdf")
-        except:
-            st.download_button("📥 Baixar PDF", bytes(pdf_output), f"lote_{inicio}.pdf", "application/pdf")
-
-# (As abas Manual e Lista seguem a mesma lógica)
+            supabase.table("registros
