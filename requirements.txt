@@ -3,4 +3,5 @@ supabase
 qrcode
 pillow
 fpdf2
+pytz
 pandas
