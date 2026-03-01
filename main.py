@@ -2,14 +2,31 @@ import streamlit as st
 import qrcode
 from io import BytesIO
 import zipfile
+import os
 
-# Configurações iniciais
-st.set_page_config(page_title="Gerador QR Pro", page_icon="📟")
+# --- FUNÇÕES DE BANCO DE DADOS (ARQUIVO LOCAL) ---
+ARQUIVO_MEMORIA = "ultimo_numero.txt"
+
+def ler_ultimo_numero():
+    if os.path.exists(ARQUIVO_MEMORIA):
+        with open(ARQUIVO_MEMORIA, "r") as f:
+            try:
+                return int(f.read().strip())
+            except:
+                return 0
+    return 0
+
+def salvar_ultimo_numero(n):
+    with open(ARQUIVO_MEMORIA, "w") as f:
+        f.write(str(n))
+
+# --- CONFIGURAÇÃO DA PÁGINA ---
+st.set_page_config(page_title="QR Pro Persistente", page_icon="💾")
 st.title("📟 Sistema de Etiquetas")
 
-# Memória do contador (Persiste na sessão)
+# Inicializa o contador pegando do arquivo físico
 if 'contador' not in st.session_state:
-    st.session_state.contador = 0
+    st.session_state.contador = ler_ultimo_numero()
 
 proximo_sequencial = st.session_state.contador + 1
 
@@ -31,8 +48,12 @@ with aba1:
                 img.save(img_io, format="PNG")
                 zf.writestr(f"QR_{txt}.png", img_io.getvalue())
         
-        st.session_state.contador += qtd_lote
-        st.success(f"Lote {proximo_sequencial:08d} até {st.session_state.contador:08d} pronto!")
+        # ATUALIZA SESSÃO E ARQUIVO FÍSICO
+        novo_ultimo = proximo_sequencial + qtd_lote - 1
+        st.session_state.contador = novo_ultimo
+        salvar_ultimo_numero(novo_ultimo)
+        
+        st.success(f"Lote salvo! Próximo agora é {(novo_ultimo + 1):08d}")
         st.download_button("📥 BAIXAR ZIP DO LOTE", buf_lote.getvalue(), f"lote_{proximo_sequencial:08d}.zip", "application/zip")
 
 with aba2:
@@ -45,25 +66,21 @@ with aba2:
         buf_m = BytesIO()
         img_m.save(buf_m, format="PNG")
         
-        # Mostra a imagem na tela antes de baixar
         st.image(buf_m.getvalue(), caption=f"Etiqueta {txt_m}", width=200)
+        st.download_button("💾 BAIXAR PNG", buf_m.getvalue(), f"QR_{txt_m}.png", "image/png")
         
-        st.download_button(
-            label="💾 BAIXAR IMAGEM (PNG)",
-            data=buf_m.getvalue(),
-            file_name=f"QR_{txt_m}.png",
-            mime="image/png"
-        )
-        
-        # Opção extra: Se o usuário quiser que a sequência continue desse número manual
-        if st.checkbox("Atualizar sequência automática a partir deste número?"):
+        if st.checkbox("Atualizar sequência a partir deste número?"):
             st.session_state.contador = num_manual
-            st.info(f"O próximo sequencial agora será o {num_manual + 1:08d}")
+            salvar_ultimo_numero(num_manual)
+            st.info("Sequência atualizada!")
 
 with aba3:
-    st.write("### Gerenciar Memória")
-    novo_valor = st.number_input("Resetar contador para:", min_value=0, value=st.session_state.contador)
-    if st.button("Salvar Alteração"):
+    st.write("### Gerenciar Memória Permanente")
+    st.info(f"O número salvo no banco de dados é: {ler_ultimo_numero():08d}")
+    
+    novo_valor = st.number_input("Resetar banco para:", min_value=0, value=st.session_state.contador)
+    if st.button("Confirmar e Salvar no Banco"):
         st.session_state.contador = novo_valor
+        salvar_ultimo_numero(novo_valor)
+        st.success("Banco de dados atualizado!")
         st.rerun()
-
