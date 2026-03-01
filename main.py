@@ -38,31 +38,44 @@ def buscar_ultimo():
     except: return 0
 
 def gerar_etiqueta_pil(conteudo):
+    # Gera o QR Code
     qr = qrcode.QRCode(version=1, box_size=10, border=1)
     qr.add_data(str(conteudo))
     qr.make(fit=True)
     qr_img = qr.make_image(fill_color="black", back_color="white").convert('RGB')
     
     qr_w, qr_h = qr_img.size
-    canvas_w, canvas_h = qr_w + 120, qr_h + 100
+    
+    # AJUSTE DE LARGURA: Aumentei de 120 para 180 para dar folga ao número de 8 dígitos
+    canvas_w = qr_w + 180 
+    canvas_h = qr_h + 100
+    
     canvas = Image.new('RGB', (canvas_w, canvas_h), 'white')
     draw = ImageDraw.Draw(canvas)
     
     try:
+        # Usando fontes padrão do Streamlit Cloud se a DejaVu falhar
         font_p = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 45)
         font_l = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 30)
     except:
-        font_p = ImageFont.load_default(); font_l = ImageFont.load_default()
+        font_p = ImageFont.load_default()
+        font_l = ImageFont.load_default()
 
-    draw.text((130, 15), str(conteudo), fill="black", font=font_p)
-    draw.text((40, 80), "L", fill="black", font=font_l)
-    draw.text((40, 125), "P", fill="black", font=font_l)
-    draw.text((40, 170), "N", fill="black", font=font_l)
-    canvas.paste(qr_img, (110, 80))
+    # AJUSTE DE POSIÇÃO: Texto começa no pixel 120 (antes era 130) para ganhar espaço à direita
+    draw.text((120, 15), str(conteudo), fill="black", font=font_p)
+    
+    # Letras Laterais
+    draw.text((30, 80), "L", fill="black", font=font_l)
+    draw.text((30, 125), "P", fill="black", font=font_l)
+    draw.text((30, 170), "N", fill="black", font=font_l)
+    
+    # Cola o QR Code
+    canvas.paste(qr_img, (100, 80))
+    
     return canvas
 
 # --- INTERFACE ---
-st.title("📟 Gerador Zebra - Visualização Real")
+st.title("📟 Gerador Zebra - Sem Cortes")
 
 proximo = buscar_ultimo() + 1
 st.metric(label="Próximo Código Sequencial", value=f"{proximo:08d}")
@@ -73,18 +86,14 @@ with tab_auto:
     qtd = st.number_input("Quantidade:", min_value=1, max_value=200, value=10)
     
     st.write("---")
-    st.subheader("👁️ Pré-visualização (Primeiras 10)")
+    st.subheader("👁️ Pré-visualização")
     
     limite_preview = min(qtd, 10)
-    # Reduzido para 2 colunas para garantir que a imagem fique inteira e grande
-    cols = st.columns(2) 
+    # Usando colunas individuais para garantir que o Streamlit não corte a imagem
     for i in range(limite_preview):
         num_preview = f"{(proximo + i):08d}"
         img_preview = gerar_etiqueta_pil(num_preview)
-        with cols[i % 2]:
-            # width=None e use_container_width=True garantem que ela ocupe a coluna sem cortar
-            st.image(img_preview, caption=f"Etiqueta: {num_preview}", use_container_width=True)
-            st.write("") # Espaçador para não grudar na de baixo
+        st.image(img_preview, caption=f"Etiqueta {num_preview}", width=350) # Largura fixa maior na tela
     
     st.write("---")
 
@@ -93,7 +102,8 @@ with tab_auto:
         pdf = FPDF(orientation='L', unit='mm', format=(40, 80))
         for i in range(qtd):
             pdf.add_page()
-            pdf.image(gerar_etiqueta_pil(f"{(inicio + i):08d}"), x=2, y=2, w=76) 
+            # Ajuste de escala no PDF para garantir que caiba na etiqueta real
+            pdf.image(gerar_etiqueta_pil(f"{(inicio + i):08d}"), x=2, y=2, w=75) 
         
         pdf_output = pdf.output()
         try:
@@ -103,16 +113,30 @@ with tab_auto:
         except:
             st.download_button("📥 Baixar PDF (Offline)", bytes(pdf_output), f"lote_{inicio}.pdf", "application/pdf")
 
+# (As abas Manual e Lista seguem a mesma lógica de gerar_etiqueta_pil)
 with tab_man:
     txt = st.text_input("Código único:")
     if txt:
-        st.image(gerar_etiqueta_pil(txt), width=400, caption="Visualização Completa")
+        st.image(gerar_etiqueta_pil(txt), width=350)
     if st.button("🎨 Gerar PDF Avulso"):
         if txt:
             pdf = FPDF(orientation='L', unit='mm', format=(40, 80))
             pdf.add_page()
-            pdf.image(gerar_etiqueta_pil(txt), x=2, y=2, w=76)
+            pdf.image(gerar_etiqueta_pil(txt), x=2, y=2, w=75)
             st.download_button("📥 Baixar PDF", bytes(pdf.output()), "etiqueta_avulsa.pdf")
 
 with tab_list:
     lista = st.text_area("Cole a lista:", height=150)
+    if lista:
+        codigos_pre = [c.strip() for c in lista.split("\n") if c.strip()]
+        for cod in codigos_pre[:10]:
+            st.image(gerar_etiqueta_pil(cod), width=350)
+
+    if st.button("📦 Gerar PDF da Lista"):
+        codigos = [c.strip() for c in lista.split("\n") if c.strip()]
+        if codigos:
+            pdf = FPDF(orientation='L', unit='mm', format=(40, 80))
+            for cod in codigos:
+                pdf.add_page()
+                pdf.image(gerar_etiqueta_pil(cod), x=2, y=2, w=75)
+            st.download_button("📥 Baixar PDF da Lista", bytes(pdf.output()), "lista.pdf")
