@@ -39,6 +39,7 @@ def buscar_ultimo():
         return int(res.data[0]['fim']) if res.data else 0
     except: return 0
 
+# --- LOGICA ETIQUETA PADRAO (10x6.5 cm) ---
 def gerar_etiqueta_pil(conteudo):
     qr = qrcode.QRCode(version=1, box_size=12, border=1)
     qr.add_data(str(conteudo))
@@ -69,65 +70,39 @@ def gerar_etiqueta_pil(conteudo):
     canvas.paste(qr_img, (130, 100))
     return canvas
 
+# --- LOGICA ETIQUETA LARGA (31.5x8 cm - 7 QR Codes) ---
+def gerar_etiqueta_larga_pil(lista_codigos):
+    canvas_w, canvas_h = 3150, 800
+    canvas = Image.new('RGB', (canvas_w, canvas_h), 'white')
+    draw = ImageDraw.Draw(canvas)
+    try:
+        font_cod = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 55)
+    except:
+        font_cod = ImageFont.load_default()
+
+    largura_item = 450 
+    for i, cod in enumerate(lista_codigos[:7]):
+        qr = qrcode.QRCode(version=1, box_size=11, border=1)
+        qr.add_data(str(cod))
+        qr.make(fit=True)
+        qr_img = qr.make_image(fill_color="black", back_color="white").convert('RGB')
+        
+        x_pos = 20 + (i * largura_item)
+        canvas.paste(qr_img, (x_pos, 180))
+        draw.text((x_pos + 30, 100), str(cod), fill="black", font=font_cod)
+    return canvas
+
 # --- INTERFACE ---
 st.title("Gerador de LPN/QR Code")
 
 proximo = buscar_ultimo() + 1
 st.metric(label="Proximo Codigo Sequencial", value=f"{proximo:08d}")
 
-tab_auto, tab_man, tab_list = st.tabs(["Automatico", "Manual", "Lista"])
+tab_auto, tab_man, tab_list, tab_larga = st.tabs(["Automatico", "Manual", "Lista", "Etiqueta Larga"])
 
 with tab_auto:
-    qtd = st.number_input("Quantidade:", min_value=1, max_value=200, value=10)
-    
+    qtd = st.number_input("Quantidade (10x6.5):", min_value=1, max_value=200, value=10)
     st.write("---")
     st.subheader("Pre-visualizacao")
-    img_preview = gerar_etiqueta_pil(f"{proximo:08d}")
-    st.image(img_preview, width=500)
-    st.write("---")
-
-    if st.button("GERAR PDF E SALVAR", use_container_width=True):
-        inicio, fim = proximo, proximo + qtd - 1
-        pdf = FPDF(orientation='L', unit='mm', format=(65, 100))
-        
-        for i in range(qtd):
-            num_str = f"{(inicio + i):08d}"
-            pdf.add_page()
-            pdf.image(gerar_etiqueta_pil(num_str), x=5, y=5, w=90) 
-        
-        pdf_output = pdf.output()
-        try:
-            supabase.table("registros_etiquetas").insert({"inicio": inicio, "fim": fim, "quantidade": qtd}).execute()
-            st.success(f"Lote {inicio:08d} a {fim:08d} salvo")
-            st.download_button("Baixar PDF", bytes(pdf_output), f"lote_{inicio}.pdf", "application/pdf")
-        except:
-            st.download_button("Baixar PDF (Erro de Conexao)", bytes(pdf_output), f"lote_{inicio}.pdf", "application/pdf")
-
-with tab_man:
-    txt = st.text_input("Codigo unico:")
-    if txt:
-        st.subheader("Pre-visualizacao")
-        st.image(gerar_etiqueta_pil(txt), width=500)
-    if st.button("Gerar PDF Avulso"):
-        if txt:
-            pdf = FPDF(orientation='L', unit='mm', format=(65, 100))
-            pdf.add_page()
-            pdf.image(gerar_etiqueta_pil(txt), x=5, y=5, w=90)
-            st.download_button("Baixar PDF Individual", bytes(pdf.output()), "individual.pdf")
-
-with tab_list:
-    lista = st.text_area("Cole a lista (um codigo por linha):", height=150)
-    if lista:
-        codigos_pre = [c.strip() for c in lista.split("\n") if c.strip()]
-        if codigos_pre:
-            st.subheader("Pre-visualizacao")
-            st.image(gerar_etiqueta_pil(codigos_pre[0]), width=500)
-
-    if st.button("Gerar PDF da Lista"):
-        codigos = [c.strip() for c in lista.split("\n") if c.strip()]
-        if codigos:
-            pdf = FPDF(orientation='L', unit='mm', format=(65, 100))
-            for cod in codigos:
-                pdf.add_page()
-                pdf.image(gerar_etiqueta_pil(cod), x=5, y=5, w=90)
-            st.download_button("Baixar PDF da Lista", bytes(pdf.output()), "lista.pdf")
+    st.image(gerar_etiqueta_pil(f"{proximo:08d}"), width=500)
+    if st.button("GERAR PDF E SALVAR", key="btn_
